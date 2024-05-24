@@ -21,71 +21,6 @@ def find_pizza_tower_path() -> str | None:
     return None
 
 
-def apply_patch(patch_data_path: str) -> bool:
-    file_name = os.path.basename(patch_data_path)
-    if file_name != 'data.win':
-        return False
-    
-    if not os.path.exists(patch_data_path):
-        return False
-
-    data_path = f'{PIZZATOWER_PATH}/data.win'
-    os.remove(data_path)
-    shutil.copy(patch_data_path, data_path)
-    return True
-
-
-def new_patch_cli():
-    xdelta_path = filedialog.askopenfilename(title='Select an XDelta file.', defaultextension='.xdelta', filetypes=[('Patch Files', '*.xdelta')])
-    if not xdelta_path:
-        print('Please select a file.')
-        return
-    ext = os.path.splitext(xdelta_path)[1]
-    if ext != '.xdelta':
-        print('Please select an xdelta file.')
-        return
-    
-    patch_name = os.path.splitext(os.path.basename(xdelta_path))[0]
-    os.makedirs(f'patches/{patch_name}')
-    dest_path = f'patches/{patch_name}/data.win'
-    
-    os.system(f'xdelta3 -d -s "vanilla/data.win" "{xdelta_path}" "{dest_path}"')
-
-    print(f'Created patch {patch_name} successfully!')
-    apply_patch_response = input(f'Would you like to apply the patch? [Y/n] ').strip()
-    if apply_patch_response.lower() == 'y' or apply_patch_response == '':
-        applied = apply_patch(dest_path)
-        if applied:
-            print('Patch applied successfully!')
-        else:
-            print('Please input a data.win file.')
-
-
-def apply_patch_cli():
-    dirs = os.listdir('patches')
-
-    print('Choose a patch to apply:')
-    
-    for i, dir_name in enumerate(dirs):
-        print(f'  [{i+1}] {dir_name}')
-    
-    response = input('> ')
-    if not response.isnumeric():
-        return
-    
-    patch_index = int(response)-1
-    if patch_index < 0 or patch_index >= len(dirs):
-        return
-    
-    patch_name = dirs[patch_index]
-    data_path = f'patches/{patch_name}/data.win'
-    if os.path.exists(data_path):
-        apply_patch(data_path)
-        print(f'Patch {patch_name} applied successfully!')
-    else:
-        print(f'Could not find data.win file for {patch_name}')
-
-
 def is_xdelta3_installed() -> bool:
     try:
         subprocess.run(['xdelta3', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -102,20 +37,20 @@ def initial_setup() -> int:
         if not pt_path:
             return 1
     
+    if not os.path.exists(f'{pt_path}/data.win'):
+        print(f'Could not find data.win file in "{pt_path}"')
+        return 2
+    
     if not is_xdelta3_installed():
         print('Please install xdelta3 before continuing.')
-        return 2
-
+        return 3
     
-    print('Before we get started, be sure that your game is currently unmodified. If it is modified, just verify the integrity of your game files before continuing.\n')
-    print("[1] I currently have an unmodified version of the game.")
+    print('Welcome to A Pizza Tower Mod Manager!')
+    print('Before installing, be sure that your game is currently unmodified. If it is modified, restore your game to vanilla by verifying the integrity of your game files.\n')
+    print("[1] My game is unmodified, continue to installation")
     print("[0] Cancel")
     response = input('> ').strip()
     if response != '1':
-        return 3
-    
-    if not os.path.exists(f'{pt_path}/data.win'):
-        print('Could not find data.win file in Pizza Tower directory.')
         return 4
     
     os.makedirs(f'vanilla')
@@ -125,8 +60,102 @@ def initial_setup() -> int:
     with open(f'ptmm.cfg', 'w') as f:
         config.write(f)
     shutil.copy(f'{pt_path}/data.win', f'vanilla/data.win')
+
+    print('Installed successfully!')
     return 0
+
+
+def apply_patch(patch_data_path: str) -> bool:
+    file_name = os.path.basename(patch_data_path)
+    if file_name != 'data.win':
+        return False
     
+    if not os.path.exists(patch_data_path):
+        return False
+
+    data_path = f'{PIZZATOWER_PATH}/data.win'
+    os.remove(data_path)
+    shutil.copy(patch_data_path, data_path)
+    return True
+
+
+def create_new_patch(xdelta_path: str) -> tuple[str, str]|None:
+    patch_name = os.path.splitext(os.path.basename(xdelta_path))[0]
+    os.makedirs(f'patches/{patch_name}')
+    dest_path = f'patches/{patch_name}/data.win'
+    
+    return os.system(f'xdelta3 -d -s "vanilla/data.win" "{xdelta_path}" "{dest_path}"') == 0
+
+
+def new_patch_cli():
+    xdelta_path = filedialog.askopenfilename(title='Select an XDelta file.', defaultextension='.xdelta', filetypes=[('Patch Files', '*.xdelta')])
+    if not xdelta_path:
+        print('Please select a file.')
+        return
+    ext = os.path.splitext(xdelta_path)[1]
+    if ext != '.xdelta':
+        print('Please select an xdelta file.')
+        return
+
+    if not create_new_patch(xdelta_path):
+        print('Patch could not be created. See above xdelta error for more information.')
+        return
+
+    patch_name = os.path.splitext(os.path.basename(xdelta_path))[0]
+    print(f'Created patch "{patch_name}" successfully!')
+    apply_patch_response = input(f'Would you like to apply the patch? [Y/n] ').strip()
+    if apply_patch_response.lower() == 'y' or apply_patch_response == '':
+        applied = apply_patch(f'patches/{patch_name}/data.win')
+        if applied:
+            print('Patch applied successfully!')
+        else:
+            print('Error while applying patch.')
+
+
+def choose_patch_cli(message: str) -> str | None:
+    dirs = os.listdir('patches')
+    if len(dirs) == 0:
+        print("You haven't created any patches yet.")
+        return None
+
+    print(message)
+    for i, dir_name in enumerate(dirs):
+        print(f'  [{i+1}] {dir_name}')
+    print('\n  [0] Cancel\n')
+    
+    response = input('> ')
+    if not response.isnumeric():
+        return None
+    
+    patch_index = int(response)-1
+    if patch_index < 0 or patch_index >= len(dirs):
+        return None
+    
+    return dirs[patch_index]
+
+
+def apply_patch_cli():
+    patch_name = choose_patch_cli('Choose a patch to apply:')
+    if patch_name is None:
+        return
+    
+    data_path = f'patches/{patch_name}/data.win'
+    if os.path.exists(data_path):
+        apply_patch(data_path)
+        print(f'Patch {patch_name} applied successfully!')
+    else:
+        print(f'Could not find data.win file for {patch_name}')
+
+
+def delete_patch_cli():
+    patch_name = choose_patch_cli('Choose a patch to delete:')
+    if patch_name is None:
+        return
+    
+    delete_patch_response = input(f'Are you sure you want to delete "{patch_name}"? [y/N] ').strip()
+    if delete_patch_response.lower() == 'y':
+        shutil.rmtree(f'patches/{patch_name}')
+        print(f'Patch "{patch_name}" deleted successfully.')
 
 
 def main():
@@ -144,7 +173,8 @@ def main():
     while True:  
         print('  [1] Create New Patch')
         print('  [2] Apply Patch')
-        print('  [3] Revert to Vanilla')
+        print('  [3] Delete Patch')
+        print('  [4] Revert to Vanilla')
         print('  [0] Quit')
         print()
 
@@ -156,6 +186,8 @@ def main():
         elif response == '2':
             apply_patch_cli()
         elif response == '3':
+            delete_patch_cli()
+        elif response == '4':
             revert = input('Are you sure you want to revert to vanilla? [Y/n] ')
             if revert.lower() == 'y' or revert == '':
                 apply_patch('vanilla/data.win')
