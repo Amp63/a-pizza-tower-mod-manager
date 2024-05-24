@@ -8,6 +8,7 @@ from tkinter import filedialog
 HOME_PATH = os.path.expanduser('~')
 ROOT_PATH = os.path.abspath('/')
 PIZZATOWER_PATH = None
+XDELTA_COMMAND = None
 
 
 def find_pizza_tower_path() -> str | None:
@@ -21,12 +22,16 @@ def find_pizza_tower_path() -> str | None:
     return None
 
 
-def is_xdelta3_installed() -> bool:
+def get_xdelta3_command() -> str | None:
     try:
         subprocess.run(['xdelta3', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        return True
+        return 'xdelta3'
     except FileNotFoundError:
-        return False
+        try:
+            subprocess.run(['xdelta', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return 'xdelta'
+        except FileNotFoundError:
+            return None
 
 
 def initial_setup() -> int:
@@ -41,12 +46,15 @@ def initial_setup() -> int:
         print(f'Could not find data.win file in "{pt_path}"')
         return 2
     
-    if not is_xdelta3_installed():
+    xdelta_command = get_xdelta3_command()
+    if xdelta_command is None:
         print('Please install xdelta3 before continuing.')
         return 3
     
     print('Welcome to A Pizza Tower Mod Manager!')
-    print('Before installing, be sure that your game is currently unmodified. If it is modified, restore your game to vanilla by verifying the integrity of your game files.\n')
+    print('Before installing here are a few things to note:')
+    print('  - Be sure that your game is currently unmodified. If it is modified, restore your game to vanilla by verifying the integrity of your game files.')
+    print('  - Mod manager files will be placed in this directory, so run this executable wherever you want to install.\n')
     print("[1] My game is unmodified, continue to installation")
     print("[0] Cancel")
     response = input('> ').strip()
@@ -57,6 +65,7 @@ def initial_setup() -> int:
     os.makedirs(f'patches')
     config = configparser.ConfigParser()
     config['pizzatower'] = {'path': pt_path}
+    config['xdelta'] = {'command': xdelta_command}
     with open(f'ptmm.cfg', 'w') as f:
         config.write(f)
     shutil.copy(f'{pt_path}/data.win', f'vanilla/data.win')
@@ -84,7 +93,7 @@ def create_new_patch(xdelta_path: str) -> tuple[str, str]|None:
     os.makedirs(f'patches/{patch_name}')
     dest_path = f'patches/{patch_name}/data.win'
     
-    return os.system(f'xdelta3 -d -s "vanilla/data.win" "{xdelta_path}" "{dest_path}"') == 0
+    return os.system(f'{XDELTA_COMMAND} -d -s "vanilla/data.win" "{xdelta_path}" "{dest_path}"') == 0
 
 
 def new_patch_cli():
@@ -165,8 +174,9 @@ def main():
     
     config = configparser.ConfigParser()
     config.read('ptmm.cfg')
-    global PIZZATOWER_PATH
+    global PIZZATOWER_PATH, XDELTA_COMMAND
     PIZZATOWER_PATH = config['pizzatower']['path']
+    XDELTA_COMMAND = config['xdelta']['command']
 
     print('Welcome to A Pizza Tower Mod Manager!\n')
 
