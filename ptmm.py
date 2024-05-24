@@ -52,7 +52,7 @@ def initial_setup() -> int:
         return 3
     
     print('Welcome to A Pizza Tower Mod Manager!')
-    print('Before installing here are a few things to note:')
+    print('Before installing, here are a few things to note:')
     print('  - Be sure that your game is currently unmodified. If it is modified, restore your game to vanilla by verifying the integrity of your game files.')
     print('  - Mod manager files will be placed in this directory, so run this executable wherever you want to install.\n')
     print("[1] My game is unmodified, continue to installation")
@@ -106,11 +106,12 @@ def new_patch_cli():
         print('Please select an xdelta file.')
         return
 
+    patch_name = os.path.splitext(os.path.basename(xdelta_path))[0]
     if not create_new_patch(xdelta_path):
         print('Patch could not be created. See above xdelta error for more information.')
+        shutil.rmtree(f'patches/{patch_name}')
         return
 
-    patch_name = os.path.splitext(os.path.basename(xdelta_path))[0]
     print(f'Created patch "{patch_name}" successfully!')
     apply_patch_response = input(f'Would you like to apply the patch? [Y/n] ').strip()
     if apply_patch_response.lower() == 'y' or apply_patch_response == '':
